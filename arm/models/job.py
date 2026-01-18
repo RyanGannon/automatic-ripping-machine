@@ -130,6 +130,7 @@ class Job(db.Model):
     is_iso = db.Column(db.Boolean)
     manual_start = db.Column(db.Boolean)
     manual_mode = db.Column(db.Boolean)
+    season_number = db.Column(db.Integer)
     tracks = db.relationship('Track', backref='job', lazy='dynamic')
     config = db.relationship('Config', uselist=False, backref="job")
 
@@ -149,6 +150,7 @@ class Job(db.Model):
         self.manual_start = False
         self.manual_mode = False
         self.has_track_99 = False
+        self.season_number = None
 
         if self.disctype == "dvd" and not self.label:
             logging.info("No disk label Available. Trying lsdvd")

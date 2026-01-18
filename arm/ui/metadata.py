@@ -94,6 +94,44 @@ def get_omdb_poster(title=None, year=None, imdb_id=None, plot="short"):
     return None, None
 
 
+def omdb_get_episode_details(imdb_id: str, season: int, episode: int):
+    """Fetch episode details from OMDb.
+
+    OMDb supports querying a specific episode of a series by providing the
+    series imdbID plus Season and Episode parameters.
+
+    Returns:
+        dict: Parsed JSON response (may include 'Error')
+        None: If request fails or required params are missing.
+    """
+    if not imdb_id or not season or not episode:
+        return None
+
+    omdb_api_key = cfg.arm_config.get('OMDB_API_KEY')
+    if not omdb_api_key:
+        app.logger.debug("OMDB_API_KEY not set; cannot fetch episode details")
+        return None
+
+    try:
+        season_i = int(season)
+        episode_i = int(episode)
+    except (TypeError, ValueError):
+        return None
+
+    str_url = (
+        f"https://www.omdbapi.com/?i={imdb_id}"
+        f"&Season={season_i:d}&Episode={episode_i:d}"
+        f"&r=json&apikey={omdb_api_key}"
+    )
+    try:
+        title_info_json = urllib.request.urlopen(str_url).read()
+        title_info = json.loads(title_info_json.decode())
+        return title_info
+    except Exception as error:
+        app.logger.debug(f"Failed to reach OMDb episode endpoint - {error}")
+        return None
+
+
 def get_tmdb_poster(search_query=None, year=None):
     """
     Queries api.themoviedb.org for the poster and backdrop for movie

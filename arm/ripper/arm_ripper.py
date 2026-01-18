@@ -196,9 +196,24 @@ def move_files_post(transcode_out_path, job):
     :param job: current job
     :return: None
     """
-    tracks = job.tracks.filter_by(ripped=True)  # .order_by(job.tracks.length.desc())
+    tracks = job.tracks if job.config.SKIP_TRANSCODE else job.tracks.filter_by(ripped=True)
     if job.video_type == "series":
         for track in tracks:
+            # If we skipped transcode (common for MakeMKV output) we may need to rename
+            # files to the desired SxxEyy format while moving.
+            if job.config.SKIP_TRANSCODE:
+                desired = utils.build_series_episode_filename(job, track, job.config.DEST_EXT)
+                if desired and desired != track.filename:
+                    utils.move_files_main(
+                        os.path.join(transcode_out_path, track.filename),
+                        os.path.join(job.path, desired),
+                        job.path,
+                    )
+                    track.orig_filename = track.filename
+                    track.filename = desired
+                    db.session.commit()
+                    continue
+
             utils.move_files(transcode_out_path, track.filename, job, False)
     else:
         for track in tracks:

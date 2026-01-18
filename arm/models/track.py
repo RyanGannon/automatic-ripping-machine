@@ -19,6 +19,8 @@ class Track(db.Model):
     error = db.Column(db.Text)
     source = db.Column(db.String(32))
     process = db.Column(db.Boolean)
+    episode_number = db.Column(db.Integer)
+    episode_title = db.Column(db.String(256))
 
     def __init__(self, job_id, track_number, length, aspect_ratio,
                  fps, main_feature, source, basename, filename):
@@ -34,6 +36,8 @@ class Track(db.Model):
         self.filename = filename
         self.ripped = False
         self.process = False
+        self.episode_number = None
+        self.episode_title = None
 
     def __repr__(self):
         return f'<Track {self.track_number}>'

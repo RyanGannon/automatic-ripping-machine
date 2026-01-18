@@ -133,6 +133,7 @@ class TrackForm(Form):
     """
     track_ref = HiddenField('ID')
     checkbox = BooleanField('Checkbox')
+    episode_number = IntegerField('Episode', validators=[Optional()])
 
 
 class TrackFormDynamic(FlaskForm):
@@ -140,4 +141,5 @@ class TrackFormDynamic(FlaskForm):
     Dynamic form for Job Tracks
     - /jobdetail (called by jobs)
     """
+    season_number = IntegerField('Season', validators=[Optional()])
     track_ref = FieldList(FormField(TrackForm), min_entries=1)

@@ -177,7 +177,12 @@ def handbrake_all(srcpath, basepath, logfile, job):
             logging.info(f"Processing track #{track.track_number} of {job.no_of_titles}. "
                          f"Length is {track.length} seconds.")
 
-            track.filename = track.orig_filename = f"title_{track.track_number}.{cfg.arm_config['DEST_EXT']}"
+            series_filename = utils.build_series_episode_filename(job, track, cfg.arm_config['DEST_EXT'])
+            track.filename = track.orig_filename = (
+                series_filename
+                if series_filename
+                else f"title_{track.track_number}.{cfg.arm_config['DEST_EXT']}"
+            )
             filepathname = os.path.join(basepath, track.filename)
 
             logging.info(f"Transcoding title {track.track_number} to {shlex.quote(filepathname)}")
@@ -238,14 +243,17 @@ def handbrake_mkv(srcpath, basepath, logfile, job):
         # MakeMKV always saves in mkv we need to update the db with the new filename
         logging.debug(destfile + ".mkv")
         job_current_track = job.tracks.filter_by(filename=destfile + ".mkv")
+        output_filename = destfile + "." + cfg.arm_config["DEST_EXT"]
         for track in job_current_track:
             logging.debug("filename: " + track.filename)
             track.orig_filename = track.filename
-            track.filename = destfile + "." + cfg.arm_config["DEST_EXT"]
+            series_filename = utils.build_series_episode_filename(job, track, cfg.arm_config['DEST_EXT'])
+            track.filename = series_filename if series_filename else output_filename
+            output_filename = track.filename
             logging.debug("UPDATED filename: " + track.filename)
             db.session.commit()
-        filename = destfile + "." + cfg.arm_config["DEST_EXT"]
-        filepathname = os.path.join(basepath, filename)
+
+        filepathname = os.path.join(basepath, output_filename)
 
         logging.info(f"Transcoding file {shlex.quote(files)} to {shlex.quote(filepathname)}")
 

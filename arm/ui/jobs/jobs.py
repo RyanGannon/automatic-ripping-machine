@@ -22,6 +22,7 @@ import arm.ui.utils as ui_utils
 from arm.ui import app, db, constants, json_api
 from arm.models.job import Job, JobState
 from arm.models.notifications import Notifications
+from arm.ui import metadata
 import arm.config.config as cfg
 from arm.ui.forms import TitleSearchForm, ChangeParamsForm, TrackFormDynamic
 
@@ -57,14 +58,22 @@ def jobdetail():
     track_form.track_ref.min_entries = len(tracks)
     app.logger.debug(f"Found [{len(tracks)}] tracks")
     track_form.track_ref.entries.clear()
+
+    # Pre-populate season for series
+    if getattr(job, 'season_number', None):
+        track_form.season_number.data = job.season_number
     # Loop through each track entry and build the WTForms dynamically
     for track_row in tracks:
         track_form.track_ref.append_entry({'track_ref': track_row.track_id,
-                                           'checkbox': track_row.process})
+                                           'checkbox': track_row.process,
+                                           'episode_number': getattr(track_row, 'episode_number', None)})
     # For Jobs that are not waiting and in manual mode, disable the process checkbox
     if not manual_edit:
         for entry in track_form.track_ref.entries:
             entry.checkbox.render_kw = {'disabled': 'disabled'}
+            entry.episode_number.render_kw = {'disabled': 'disabled'}
+
+        track_form.season_number.render_kw = {'disabled': 'disabled'}
 
     search_results = ui_utils.metadata_selector("get_details", job.title, job.year, job.imdb_id)
 
@@ -97,15 +106,31 @@ def jobdetail_load():
     if request.method == 'POST' and track_form.validate_on_submit():
         app.logger.debug(f"Job id [{job.job_id}]")
         app.logger.debug(f"Returned [{len(track_form.track_ref.entries)}] tracks")
+
+        # Persist season number (series only)
+        if job and job.video_type == 'series':
+            job.season_number = track_form.season_number.data
+
         for track_row in track_form.track_ref.entries:
             # app.logger.debug(f"Track deets [{track_row}]")
             track_id = track_row.data['track_ref']
             checkbox_value = track_row.data['checkbox']
+            episode_number = track_row.data.get('episode_number')
             app.logger.debug(f"Setting [{track_id}] to [{checkbox_value}]")
 
             db_track = job.tracks.filter_by(track_id=track_id).first()
             if db_track:
                 db_track.process = checkbox_value
+                # Store series episode metadata (manual entry)
+                if job.video_type == 'series':
+                    db_track.episode_number = episode_number
+
+                    # Fetch episode title from OMDb if we have enough info
+                    if job.imdb_id and job.season_number and db_track.episode_number:
+                        details = metadata.omdb_get_episode_details(job.imdb_id, job.season_number, db_track.episode_number)
+                        if details and 'Error' not in details and details.get('Response', 'True') != 'False':
+                            db_track.episode_title = details.get('Title')
+
                 db.session.commit()
 
         # Set job to ready

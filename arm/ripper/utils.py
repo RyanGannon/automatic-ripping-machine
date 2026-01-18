@@ -760,6 +760,58 @@ def clean_for_filename(string):
     return re.sub('[^\\w.() -]', '', string)
 
 
+def _slugify_component_underscore(value: str) -> str:
+    """Slugify a component for filenames using underscores.
+
+    Keep this intentionally conservative: lower-case, replace non-alnum with
+    underscores, collapse repeats, and trim.
+    """
+    if not value:
+        return ""
+    value = value.strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "_", value)
+    value = re.sub(r"_+", "_", value)
+    return value.strip("_")
+
+
+def build_series_episode_filename(job, track, ext: str) -> str | None:
+    """Return a series episode filename like show_s02e01_episode_title.ext.
+
+    Uses:
+      - job.title_manual (preferred) or job.title
+      - job.season_number
+      - track.episode_number
+      - track.episode_title (optional)
+    """
+    if getattr(job, 'video_type', None) != 'series':
+        return None
+
+    season = getattr(job, 'season_number', None)
+    episode = getattr(track, 'episode_number', None)
+    if not season or not episode:
+        return None
+
+    try:
+        season_i = int(season)
+        episode_i = int(episode)
+    except (TypeError, ValueError):
+        return None
+
+    series_title = getattr(job, 'title_manual', None) or getattr(job, 'title', None) or ""
+    series_slug = _slugify_component_underscore(series_title)
+    if not series_slug:
+        return None
+
+    episode_title = getattr(track, 'episode_title', None) or ""
+    episode_slug = _slugify_component_underscore(episode_title)
+
+    base = f"{series_slug}_s{season_i:02d}e{episode_i:02d}"
+    if episode_slug:
+        base = f"{base}_{episode_slug}"
+
+    return f"{base}.{ext}"
+
+
 def duplicate_run_check(dev_path):
     """
     Kills this run if another run was triggered recently on the same device\n

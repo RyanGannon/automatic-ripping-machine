@@ -305,7 +305,8 @@ def ffmpeg_all(src_path, base_path, job):
             logging.info(f"Processing track #{track.track_number} of {job.no_of_titles}. "
                          f"Length is {track.length} seconds.")
 
-            out_file_name = f"title_{track.track_number}.{cfg.arm_config['DEST_EXT']}"
+            series_filename = utils.build_series_episode_filename(job, track, cfg.arm_config['DEST_EXT'])
+            out_file_name = series_filename if series_filename else f"title_{track.track_number}.{cfg.arm_config['DEST_EXT']}"
             out_file_path = os.path.join(base_path, out_file_name)
 
             logging.info(f"Transcoding title {track.track_number} to {shlex.quote(out_file_path)}")
@@ -360,10 +361,12 @@ def ffmpeg_default(src_path, base_path, job):
         for track in job_current_track:
             logging.debug("filename: " + track.filename)
             track.orig_filename = track.filename
-            track.filename = dest_file + "." + cfg.arm_config["DEST_EXT"]
+            series_filename = utils.build_series_episode_filename(job, track, cfg.arm_config['DEST_EXT'])
+            track.filename = series_filename if series_filename else dest_file + "." + cfg.arm_config["DEST_EXT"]
             logging.debug("UPDATED filename: " + track.filename)
             db.session.commit()
-        file_name = os.path.join(base_path, dest_file + "." + cfg.arm_config["DEST_EXT"])
+
+        file_name = track.filename if track is not None else dest_file + "." + cfg.arm_config["DEST_EXT"]
         out_file_path = os.path.join(base_path, file_name)
         logging.info(f"Transcoding file {shlex.quote(file)} to {shlex.quote(out_file_path)}")
 
@@ -427,17 +430,19 @@ def ffmpeg_mkv(src_path, base_path, job):
         logging.debug(dest_file + ".mkv")
         job_current_track = job.tracks.filter_by(filename=dest_file + ".mkv")
         track = None
+        output_filename = dest_file + "." + cfg.arm_config["DEST_EXT"]
         # Generating the destination filename and updating the db
         for track in job_current_track:
             logging.debug("filename: " + track.filename)
             track.orig_filename = track.filename
-            track.filename = dest_file + "." + cfg.arm_config["DEST_EXT"]
+            series_filename = utils.build_series_episode_filename(job, track, cfg.arm_config['DEST_EXT'])
+            track.filename = series_filename if series_filename else output_filename
+            output_filename = track.filename
             logging.debug("UPDATED filename: " + track.filename)
             db.session.commit()
 
         # Use filename relative to basepath
-        file_name = dest_file + "." + cfg.arm_config["DEST_EXT"]
-        file_path_name = os.path.join(base_path, file_name)
+        file_path_name = os.path.join(base_path, output_filename)
 
         logging.info(f"Transcoding file {shlex.quote(files)} to {shlex.quote(file_path_name)}")
 
